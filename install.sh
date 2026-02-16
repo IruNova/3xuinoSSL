@@ -616,6 +616,9 @@ config_after_install() {
             fi
             
             ${xui_folder}/x-ui setting -username "${config_username}" -password "${config_password}" -port "${config_port}" -webBasePath "${config_webBasePath}"
+            mkdir -p /etc/x-ui
+            printf 'username=%s\npassword=%s\n' "${config_username}" "${config_password}" > /etc/x-ui/credentials
+            chmod 600 /etc/x-ui/credentials
             
             # Display final credentials and access information
             echo ""
@@ -643,6 +646,9 @@ config_after_install() {
             
             echo -e "${yellow}Default credentials detected. Security update required...${plain}"
             ${xui_folder}/x-ui setting -username "${config_username}" -password "${config_password}"
+            mkdir -p /etc/x-ui
+            printf 'username=%s\npassword=%s\n' "${config_username}" "${config_password}" > /etc/x-ui/credentials
+            chmod 600 /etc/x-ui/credentials
             echo -e "Generated new random login credentials:"
             echo -e "###############################################"
             echo -e "${green}Username: ${config_username}${plain}"
@@ -700,6 +706,15 @@ install_x-ui() {
         echo -e "${red}Failed to download x-ui.sh${plain}"
         exit 1
     fi
+    sed -i "/LOGI \"\${info}\"/a\\
+    local existing_username=\$(echo \"\$info\" | grep -Eo 'username: .+' | awk '{print \$2}')\\
+    local existing_password=\$(echo \"\$info\" | grep -Eo 'password: .+' | awk '{print \$2}')\\
+    if [[ -z \"\$existing_username\" || -z \"\$existing_password\" ]] && [[ -f /etc/x-ui/credentials ]]; then\\
+        existing_username=\${existing_username:-\$(grep '^username=' /etc/x-ui/credentials | cut -d'=' -f2-)}\\
+        existing_password=\${existing_password:-\$(grep '^password=' /etc/x-ui/credentials | cut -d'=' -f2-)}\\
+    fi\\
+    [[ -n \"\$existing_username\" ]] && echo -e \"\${green}Username: \${existing_username}\${plain}\"\\
+    [[ -n \"\$existing_password\" ]] && echo -e \"\${green}Password: \${existing_password}\${plain}\"" /usr/bin/x-ui-temp
     
     # Stop x-ui service and remove old resources
     if [[ -e ${xui_folder}/ ]]; then
